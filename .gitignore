@@ -1,0 +1,4 @@
+ppmc
+dados/
+__pycache__/
+*.ppmc
