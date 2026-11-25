@@ -92,6 +92,10 @@ def executar(arquivo, bits, kmax, reset=None, memoria=None, descomprimir=True, l
     reset = None ou (j, p).
     Devolve um dicionário com os resultados.
     """
+    # Avisa quando cada execução COMEÇA (as mais lentas podem levar muito
+    # tempo para terminar; assim dá para ver que o programa está trabalhando).
+    extra = f" j={reset[0]} p={reset[1]}" if reset else ""
+    print(f"   iniciando: {os.path.basename(arquivo)} A{bits} K={kmax}{extra}", flush=True)
     with tempfile.TemporaryDirectory() as tmp:
         comprimido = os.path.join(tmp, "c.ppmc")
         restaurado = os.path.join(tmp, "d.out")
