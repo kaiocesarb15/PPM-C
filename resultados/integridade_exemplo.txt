@@ -1,0 +1,12 @@
+$ ./ppmc c -a 8 -k 6 dados/dickens dickens.ppmc
+bytes_entrada: 10192446
+bytes_saida: 2422615
+bits_por_byte: 1.901498
+$ ./ppmc d dickens.ppmc dickens.out
+bytes_saida: 10192446
+tempo_s: 6.455
+$ cmp dados/dickens dickens.out && echo IDENTICOS
+IDENTICOS
+$ sha256sum dados/dickens dickens.out
+b24c37886142e11d0ee687db6ab06f936207aa7f2ea1fd1d9a36763c7a507e6a  dados/dickens
+b24c37886142e11d0ee687db6ab06f936207aa7f2ea1fd1d9a36763c7a507e6a  dickens.out
