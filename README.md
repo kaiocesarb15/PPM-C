@@ -140,4 +140,6 @@ python3 scripts/graficos.py
 
 Os resultados preliminares estão em `resultados/`: dickens completo, amostra do Silesia e curvas do Silesia completo para A4 e A8. A demonstração de integridade com `cmp` está em `resultados/integridade_exemplo.txt`.
 
+O rascunho do relatório está em [`relatorio/relatorio.md`](relatorio/relatorio.md).
+
 Os CSVs e PNGs são gravados em `resultados/`.
