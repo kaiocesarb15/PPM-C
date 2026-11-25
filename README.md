@@ -136,7 +136,7 @@ python3 scripts/experimentos.py resumo dados/silesia_concat.bin
 python3 scripts/graficos.py
 ```
 
-## 5. Resultados já obtidos
+## 5. Resultados e relatório
 
 Os resultados preliminares estão em `resultados/`: dickens completo, amostra do Silesia e curvas do Silesia completo para A4 e A8. A demonstração de integridade com `cmp` está em `resultados/integridade_exemplo.txt`.
 
