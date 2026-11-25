@@ -92,6 +92,10 @@ def executar(arquivo, bits, kmax, reset=None, memoria=None, descomprimir=True, l
     reset = None ou (j, p).
     Devolve um dicionário com os resultados.
     """
+    # Avisa quando cada execução COMEÇA (as mais lentas podem levar muito
+    # tempo para terminar; assim dá para ver que o programa está trabalhando).
+    extra = f" j={reset[0]} p={reset[1]}" if reset else ""
+    print(f"   iniciando: {os.path.basename(arquivo)} A{bits} K={kmax}{extra}", flush=True)
     with tempfile.TemporaryDirectory() as tmp:
         comprimido = os.path.join(tmp, "c.ppmc")
         restaurado = os.path.join(tmp, "d.out")
@@ -132,10 +136,19 @@ def executar(arquivo, bits, kmax, reset=None, memoria=None, descomprimir=True, l
         return r
 
 
+def parar_tudo(pool):
+    """Ctrl+C: cancela a fila, mata os ppmc em execução e sai na hora."""
+    print("\nInterrompido pelo usuário (Ctrl+C). Parando todas as execuções...", flush=True)
+    pool.shutdown(wait=False, cancel_futures=True)  # não inicia mais nada da fila
+    subprocess.run(["pkill", "-INT", "-P", str(os.getpid())], check=False)  # para os ppmc filhos
+    os._exit(130)
+
+
 def rodar_em_paralelo(tarefas, jobs, saida_csv):
     """Executa uma lista de tarefas (dicionários de argumentos) e grava um CSV."""
     resultados = []
-    with ThreadPoolExecutor(max_workers=jobs) as pool:
+    pool = ThreadPoolExecutor(max_workers=jobs)
+    try:
         futuros = {pool.submit(executar, **t): t for t in tarefas}
         for i, f in enumerate(as_completed(futuros), 1):
             r = f.result()
@@ -145,6 +158,9 @@ def rodar_em_paralelo(tarefas, jobs, saida_csv):
                   f"{r['bits_por_simbolo']:.4f} bits/simb  {r['bits_por_byte']:.4f} bits/byte  "
                   f"tc={r['tempo_compressao_s']}s td={r['tempo_descompressao_s']}s "
                   f"resets={r['resets']} identico={r['identico']}", flush=True)
+    except KeyboardInterrupt:
+        parar_tudo(pool)
+    pool.shutdown()
     # Ordena para o CSV ficar legível.
     resultados.sort(key=lambda r: (r["alfabeto_bits"], r["kmax"], str(r["j"]), str(r["p"])))
     os.makedirs(RESULTADOS, exist_ok=True)
@@ -273,10 +289,14 @@ def cmd_curvas(a):
             log = os.path.join(RESULTADOS, f"curva_{base}_a{bits}_reset.csv")
             tarefas.append(dict(arquivo=a.arquivo, bits=bits, kmax=k, reset=(j, p),
                                 memoria=a.memoria, descomprimir=False, log=log))
-    with ThreadPoolExecutor(max_workers=a.jobs) as pool:
+    pool = ThreadPoolExecutor(max_workers=a.jobs)
+    try:
         for r in pool.map(lambda t: executar(**t), tarefas):
             print(f"A{r['alfabeto_bits']} K={r['kmax']} reset={r['reset']} j={r['j']} p={r['p']}: "
-                  f"{r['bits_por_simbolo']:.4f} bits/simb, resets={r['resets']}")
+                  f"{r['bits_por_simbolo']:.4f} bits/simb, resets={r['resets']}", flush=True)
+    except KeyboardInterrupt:
+        parar_tudo(pool)
+    pool.shutdown()
     print(f"Curvas gravadas em {RESULTADOS}/curva_{base}_*.csv")
 
 
