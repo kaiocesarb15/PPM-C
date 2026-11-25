@@ -109,9 +109,35 @@ python3 scripts/graficos.py
 
 **Cuidados com tempo e memória**
 
-- Cada execução usa um núcleo. Use `--jobs` igual ao número de núcleos, mas confira a RAM. A8 com Kmax alto pode usar o limite inteiro de `-m` (2 GB por padrão) em cada processo.
+- Cada execução usa um núcleo. Use `--jobs` igual ao número de núcleos, mas confira a RAM. Cada processo pode usar até o limite de `-m` (2 GB por padrão) mais o tamanho do arquivo. Para jobs paralelos, a RAM precisa ser de pelo menos `jobs × (MB de -m + 0,5 GB)`.
+- **A1 é o alfabeto mais lento**, porque tem 8 vezes mais símbolos e até 33 ordens. Valores medidos numa VM modesta (só compressão):
+
+  | Configuração | dickens (10 MB) | amostra (24 MB) | Silesia completo (212 MB, estimado) |
+  |---|---|---|---|
+  | A8, K = 6 | 6 s | 42 s | ~6 min |
+  | A4, K = 8 | 4 s | 50 s | ~7 min |
+  | A1, K = 24 | 10 s | 130 s | ~20 min |
+  | A1, K = 32 | 22 s | 610 s | ~1 h ou mais |
+
+  A descompressão leva mais ou menos o mesmo tempo.
+- Para economizar tempo no A1: `--kmax-a1 0 4 8 12 16 20 24 28 32` na varredura de ordem, e `--j-a1 ... --p-a1 ...` para uma grade menor de reset.
 - Na varredura de reset, `--so-compressao` pula a descompressão e corta o tempo pela metade.
 - `--alfabetos 8` e `--kmax-max 24` restringem a varredura.
+- Com muita RAM, teste `--memoria 8000`. Com 2 GB, A1 com K ≥ 28 e A8 com K ≥ 6 atingem o limite no Silesia e são reiniciados, o que muda os resultados (ver `resets_memoria` no CSV).
 - Para testar rápido, use `dados/silesia_amostra.bin` (os primeiros 2 MB de cada arquivo).
+
+### Ordem sugerida no computador potente
+
+```bash
+python3 scripts/experimentos.py ordem dados/silesia_concat.bin --jobs N --kmax-a1 0 4 8 12 16 20 24 28 32
+python3 scripts/experimentos.py reset dados/silesia_concat.bin --jobs N --so-compressao
+python3 scripts/experimentos.py curvas dados/silesia_concat.bin --reset auto --jobs N
+python3 scripts/experimentos.py resumo dados/silesia_concat.bin
+python3 scripts/graficos.py
+```
+
+## 5. Resultados já obtidos
+
+Os resultados preliminares estão em `resultados/`: dickens completo, amostra do Silesia e curvas do Silesia completo para A4 e A8. A demonstração de integridade com `cmp` está em `resultados/integridade_exemplo.txt`.
 
 Os CSVs e PNGs são gravados em `resultados/`.

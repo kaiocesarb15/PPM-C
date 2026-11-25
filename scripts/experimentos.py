@@ -221,6 +221,8 @@ def cmd_ordem(a):
     tarefas = []
     for bits in a.alfabetos:
         faixa = KMAX_FAIXA[bits]
+        if a.kmax_a1 is not None and bits == 1:
+            faixa = a.kmax_a1  # lista reduzida de Kmax para A1 (o alfabeto mais lento)
         if a.kmax_max is not None:
             faixa = [k for k in faixa if k <= a.kmax_max]
         for k in faixa:
@@ -240,8 +242,10 @@ def cmd_reset(a):
     for bits in a.alfabetos:
         if bits not in kmax:
             continue
-        for j in a.j:
-            for p in a.p:
+        js = a.j_a1 if (bits == 1 and a.j_a1) else a.j
+        ps = a.p_a1 if (bits == 1 and a.p_a1) else a.p
+        for j in js:
+            for p in ps:
                 tarefas.append(dict(arquivo=a.arquivo, bits=bits, kmax=kmax[bits],
                                     reset=(j, p), memoria=a.memoria,
                                     descomprimir=not a.so_compressao))
@@ -344,11 +348,17 @@ def main():
 
     p = sub.add_parser("ordem"); comuns(p)
     p.add_argument("--kmax-max", type=int, default=None, help="limita o maior Kmax testado")
+    p.add_argument("--kmax-a1", type=int, nargs="+", default=None,
+                   help="lista de Kmax para A1 (ex.: 0 4 8 12 16 20 24 28 32), para economizar tempo")
     p.set_defaults(f=cmd_ordem)
 
     p = sub.add_parser("reset"); comuns(p)
     p.add_argument("--j", type=int, nargs="+", default=J_PADRAO)
     p.add_argument("--p", type=float, nargs="+", default=P_PADRAO)
+    p.add_argument("--j-a1", type=int, nargs="+", default=None,
+                   help="valores de j só para A1 (grade reduzida para o alfabeto mais lento)")
+    p.add_argument("--p-a1", type=float, nargs="+", default=None,
+                   help="valores de p só para A1")
     p.set_defaults(f=cmd_reset)
 
     p = sub.add_parser("curvas"); comuns(p)

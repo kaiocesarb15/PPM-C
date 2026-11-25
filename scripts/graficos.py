@@ -38,6 +38,8 @@ def ler_curva(caminho):
     pos, media, resets = [], [], []
     with open(caminho) as f:
         for r in csv.DictReader(f):
+            if not r.get("bits_totais"):  # linha incompleta (arquivo ainda sendo escrito)
+                continue
             n, bits = int(r["posicao"]), int(r["bits_totais"])
             if r["tipo"] == "P":
                 pos.append(n)
@@ -94,33 +96,65 @@ def graficos_curvas():
 
         # ---- (a) um gráfico por alfabeto, em bits/símbolo ----
         for bits, versoes in sorted(por_alfabeto.items()):
-            fig, ax = plt.subplots(figsize=(10, 4.5))
+            # Para o Silesia (com fronteiras) desenhamos 2 painéis:
+            #   em cima: o comprimento médio progressivo (o que o enunciado pede);
+            #   embaixo: a taxa LOCAL (bits entre dois pontos consecutivos da
+            #   curva / símbolos entre eles), que mostra melhor o efeito de
+            #   cada mudança de arquivo e de cada reset.
+            if fronteiras:
+                fig, (ax, ax2) = plt.subplots(2, 1, figsize=(10, 7), sharex=True,
+                                              gridspec_kw={"height_ratios": [3, 2]})
+            else:
+                fig, ax = plt.subplots(figsize=(10, 4.5))
+                ax2 = None
             simb_por_byte = 8 // bits
             for com_reset in (False, True):
                 if com_reset not in versoes:
                     continue
                 pos, media, resets = ler_curva(versoes[com_reset])
-                x = [p / simb_por_byte for p in pos]  # posição em bytes
+                if not media:  # arquivo vazio (execução ainda em andamento)
+                    continue
+                x = [p / simb_por_byte / 1e6 for p in pos]  # posição em MB
                 rot = "com reset" if com_reset else "sem reset"
-                ax.plot(x, media, lw=1.3, label=f"A{bits} {rot} (final {media[-1]:.4f})",
-                        color=CORES[bits] if not com_reset else "#c0392b")
+                cor = CORES[bits] if not com_reset else "#222222"  # com reset: preto
+                ax.plot(x, media, lw=1.3, label=f"A{bits} {rot} (final {media[-1]:.4f})", color=cor)
+                if ax2 is not None:
+                    # taxa local entre pontos consecutivos
+                    bits_acum = [m * p for m, p in zip(media, pos)]
+                    local = [(bits_acum[i] - bits_acum[i - 1]) / (pos[i] - pos[i - 1])
+                             for i in range(1, len(pos))]
+                    ax2.plot(x[1:], local, lw=0.7, color=cor, alpha=0.85, label=rot)
                 if com_reset and resets:
-                    rx = [n / simb_por_byte for n, t in resets if t == "R"]
-                    ax.plot(rx, [ax.get_ylim()[0]] * len(rx), "|", color="#c0392b",
-                            ms=8, label=f"resets ({len(rx)})")
-                if not com_reset:
-                    i = estabilizacao(pos, media)
-                    if i is not None:
-                        ax.axvline(x[i], color=CORES[bits], ls=":", lw=1)
-                        ax.annotate(f"estabiliza ≈ {x[i]/1e6:.2f} MB\n(±1% do valor final)",
-                                    (x[i], media[i]), xytext=(10, 25), textcoords="offset points",
-                                    fontsize=8, arrowprops=dict(arrowstyle="->", lw=0.8))
-            desenhar_fronteiras(ax, fronteiras, 1)
-            ax.set_xlabel("posição n no arquivo (bytes)")
-            ax.set_ylabel("bits atribuídos até n / n  (bits/símbolo)")
+                    rx = [n / simb_por_byte / 1e6 for n, t in resets if t == "R"]
+                    alvo = ax2 if ax2 is not None else ax
+                    for xr in rx:
+                        alvo.axvline(xr, color="#c0392b", lw=0.6, alpha=0.5)
+                    alvo.plot([], [], color="#c0392b", lw=0.6, label=f"resets ({len(rx)})")
+                if not com_reset and not fronteiras:
+                    # Ponto de estabilização (só faz sentido numa fonte "estacionária")
+                    # Duas tolerâncias: 5% (fim da fase de aprendizado rápido)
+                    # e 1% (curva praticamente plana).
+                    for tol, dy in ((0.05, 45), (0.01, 25)):
+                        i = estabilizacao(pos, media, tol)
+                        if i is not None:
+                            ax.axvline(x[i], color=CORES[bits], ls=":", lw=1)
+                            ax.annotate(f"±{tol:.0%} do valor final\na partir de ≈ {x[i]:.2f} MB",
+                                        (x[i], media[i]), xytext=(10, dy), textcoords="offset points",
+                                        fontsize=8, arrowprops=dict(arrowstyle="->", lw=0.8))
+            desenhar_fronteiras(ax, [(n, i / 1e6) for n, i in fronteiras], 1)
+            ax.set_ylabel("bits atribuídos até n / n\n(bits/símbolo)")
             ax.set_title(f"Comprimento médio progressivo — {base}, alfabeto A{bits}")
             ax.grid(alpha=0.3)
             ax.legend(fontsize=8, loc="upper right")
+            if ax2 is not None:
+                for _, ini in fronteiras:
+                    ax2.axvline(ini / 1e6, color="0.75", lw=0.8, ls="--", zorder=0)
+                ax2.set_ylabel("taxa local\n(bits/símbolo)")
+                ax2.grid(alpha=0.3)
+                ax2.legend(fontsize=8, loc="upper right")
+                ax2.set_xlabel("posição n no arquivo (MB)")
+            else:
+                ax.set_xlabel("posição n no arquivo (MB)")
             fig.tight_layout()
             saida = os.path.join(RES, f"grafico_curva_{base}_a{bits}.png")
             fig.savefig(saida, dpi=150)
@@ -134,12 +168,14 @@ def graficos_curvas():
                 if com_reset not in versoes:
                     continue
                 pos, media, _ = ler_curva(versoes[com_reset])
+                if not media:
+                    continue
                 spb = 8 // bits
-                ax.plot([p / spb for p in pos], [m * spb for m in media], lw=1.2,
+                ax.plot([p / spb / 1e6 for p in pos], [m * spb for m in media], lw=1.2,
                         ls="--" if com_reset else "-", color=CORES[bits],
                         label=f"A{bits} {'com' if com_reset else 'sem'} reset")
-        desenhar_fronteiras(ax, fronteiras, 1)
-        ax.set_xlabel("posição no arquivo (bytes)")
+        desenhar_fronteiras(ax, [(n, i / 1e6) for n, i in fronteiras], 1)
+        ax.set_xlabel("posição no arquivo (MB)")
         ax.set_ylabel("comprimento médio progressivo (bits/byte)")
         ax.set_title(f"Comparação entre alfabetos — {base}")
         ax.grid(alpha=0.3)

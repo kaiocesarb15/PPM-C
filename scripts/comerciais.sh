@@ -11,8 +11,8 @@
 # =============================================================================
 set -eu
 cd "$(dirname "$0")/.."
-ARQ="$1"
-BASE=$(basename "${ARQ%.*}")
+ARQ=$(readlink -f "$1")   # caminho real (resolve links simbólicos)
+BASE=$(basename "${1%.*}")
 OUT="resultados/comerciais_${BASE}.csv"
 mkdir -p resultados
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
