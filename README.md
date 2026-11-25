@@ -78,7 +78,45 @@ Os arquivos devem ser lidos nesta ordem. Cada um começa com um bloco que explic
 8. **Após um reset**, a janela seguinte não é comparada: ela vira a nova referência. Isso evita resets em cascata enquanto o modelo reaprende.
 9. **Limite de memória** (`-m`). Quando a estimativa de memória das tabelas passa do limite, o modelo é reiniciado. É determinístico, logo também sincronizado. Sem isso, A8 com K=8 no Silesia inteiro precisaria de dezenas de GB.
 
-## 4. Reproduzir os experimentos
+## 4. Rodar no Windows 11 (via WSL)
+
+O projeto usa ferramentas de Linux, então no Windows ele roda dentro do **WSL2 (Ubuntu)**, com desempenho praticamente nativo. São três comandos.
+
+**1. No PowerShell, como administrador** (na pasta onde você clonou o repositório no Windows):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\configurar_wsl.ps1
+```
+
+O script instala o WSL com Ubuntu e libera ~90% da RAM e todos os núcleos para ele. **Se ele instalar o WSL, reinicie o computador.** Depois abra o **Ubuntu** no menu Iniciar e crie um usuário e uma senha.
+
+**2. No terminal do Ubuntu:**
+
+```bash
+cd ~
+git clone https://github.com/kaiocesarb15/PPM-C
+cd PPM-C
+bash scripts/preparar_ambiente.sh /mnt/c/Users/SEU_USUARIO/Downloads/silesia.zip
+```
+
+Clone dentro do Linux (`~`), não use a pasta do Windows: arquivos em `/mnt/c` são bem mais lentos no WSL. Este passo instala compilador, Python, matplotlib e os compressores comerciais. Também compila o programa, roda o teste de integridade, descompacta o Silesia e prepara a pasta `dados/`. Ele vai pedir a senha do Ubuntu.
+
+**3. Rodar todos os experimentos:**
+
+```bash
+tmux new -s ppmc
+bash scripts/rodar_tudo.sh
+```
+
+O script roda tudo na ordem certa: Kmax, grade de reset, comerciais, curvas, resumos e gráficos. Ele escolhe sozinho quantas execuções rodar em paralelo, de acordo com a RAM e os núcleos. Pode levar muitas horas.
+
+- **Sair sem parar o processo:** Ctrl+B e depois D.
+- **Voltar:** `tmux attach -t ppmc`.
+- **Se for interrompido:** rode de novo. As etapas já concluídas são puladas.
+- **Durante a execução:** desative a suspensão do Windows (Configurações → Sistema → Energia).
+- **Ao terminar:** `git add resultados && git commit -m "Resultados finais" && git push`.
+
+## 4.1 Reproduzir os experimentos manualmente (Linux)
 
 ```bash
 # 0) Baixe e descompacte o Silesia numa pasta (ex.: ~/silesia, com os 12 arquivos)
