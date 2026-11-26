@@ -1,7 +1,6 @@
 # Relatório — Compressor PPM-C com exclusão e reset (ITI 2026.2)
 
-> **Rascunho em andamento.** Trechos entre **[colchetes]** dependem dos experimentos finais no Silesia completo.
-> A versão editável deste relatório está no documento do Claude; este arquivo é uma cópia exportada em 24/11/2026.
+> **Rascunho.** Atualizado em 26/11/2026 com os resultados finais. Trechos entre **[colchetes]** ainda precisam ser preenchidos.
 
 **[Nomes dos integrantes da equipe]** · Introdução à Teoria da Informação — 2026.2 · Prof. Leonardo
 
@@ -98,7 +97,7 @@ O reset apaga todas as tabelas. O histórico dos últimos símbolos é mantido, 
 
 ### 2.5 Limite de memória
 
-Modelos de ordem alta crescem sem limite: A8 com Kmax = 8 usou 557 MB só no dickens (10 MB). O programa estima a memória das tabelas (112 bytes por contexto mais 4 bytes por símbolo registrado) e reinicia o modelo quando a estimativa passa do limite configurado, 2 GB por padrão. A estimativa foi calibrada: com limite de 400 MB, o pico medido foi 386 MB. A decisão é determinística e, portanto, também sincronizada. Esses resets são contados à parte dos resets por taxa.
+Modelos de ordem alta crescem sem limite: A8 com Kmax = 8 usou 557 MB só no dickens (10 MB). O programa estima a memória das tabelas (112 bytes por contexto mais 4 bytes por símbolo registrado) e reinicia o modelo quando a estimativa passa do limite configurado, 2 GB por padrão. A estimativa foi calibrada: com limite de 400 MB, o pico medido foi 386 MB. A decisão é determinística e, portanto, também sincronizada. Esses resets são contados à parte dos resets por taxa. Nos experimentos finais, o limite foi de 4 GB por execução.
 
 ### 2.6 Formato do arquivo
 
@@ -106,121 +105,99 @@ Um cabeçalho de 32 bytes guarda o identificador, o alfabeto, Kmax, j, p, o limi
 
 ### 2.7 Dados e protocolo experimental
 
-O Corpus Silesia (211.938.580 bytes, 12 arquivos) foi concatenado em ordem alfabética num único arquivo, para que as mudanças de fonte apareçam como transições entre arquivos. Para varreduras rápidas, foi usada também uma amostra de 24 MB: os primeiros 2 MB de cada arquivo, na mesma ordem. A análise de aprendizado usa o arquivo `dickens` (10.192.446 bytes, obras de Charles Dickens).
+O Corpus Silesia (211.938.580 bytes, 12 arquivos) foi concatenado em ordem alfabética num único arquivo, para que as mudanças de fonte apareçam como transições entre arquivos. A análise de aprendizado usa também o arquivo `dickens` (10.192.446 bytes, obras de Charles Dickens) isolado. Uma amostra de 24 MB (os primeiros 2 MB de cada arquivo) serviu apenas para testes preliminares; seus resultados estão em `resultados/preliminar_vm/`.
 
-1. **Ordem.** Kmax de 0 a 32 em A1 e de 0 a 8 em A4 e A8, sem reset. Cada execução comprime, descomprime e compara byte a byte com o original.
-2. **Reset.** Com o melhor Kmax de cada alfabeto, j ∈ {1.000, 2.000, 5.000, 10.000, 20.000, 50.000, 100.000} e p ∈ {5, 10, 20, 30, 40, 50}%.
-3. **Comerciais.** gzip -9, bzip2 -9, xz -9, zstd -19, 7-Zip LZMA2 -mx9 e 7-Zip PPMd -mx9, nos mesmos arquivos.
-4. **Curvas.** Comprimento médio progressivo, isto é, bits acumulados até a posição n divididos por n, amostrado em cerca de 2.000 pontos.
+1. **Ordem.** Kmax de 0 a 8 em A4 e A8, e de 0 a 32 em A1, sem reset. No dickens, o A1 foi testado em todos os valores de 0 a 32. No Silesia completo, por causa do tempo, foi testado de 4 em 4 (0, 4, …, 32). Cada execução comprime, descomprime e compara byte a byte com o original.
+2. **Reset.** Com o melhor Kmax de cada alfabeto no Silesia, foram testados j ∈ {1.000, 2.000, 5.000, 10.000, 20.000, 50.000, 100.000} e p ∈ {5, 10, 20, 30, 40, 50}% em A4 e A8 (42 combinações cada). Em A1, o alfabeto mais lento, foram testados j ∈ {10.000, 50.000, 100.000} e p ∈ {10, 30, 50}% (9 combinações). Nesta etapa mediu-se só a compressão.
+3. **Comerciais.** gzip -9, bzip2 -9, xz -9, zstd -19, 7-Zip LZMA2 -mx9 e 7-Zip PPMd -mx9, nos mesmos arquivos, verificados com `cmp`.
+4. **Curvas.** Comprimento médio progressivo, isto é, bits acumulados até a posição n divididos por n, amostrado em cerca de 2.000 pontos. Para cada alfabeto, com o melhor Kmax, sem reset e com o melhor j e p.
 
-Tempos medidos com `std::chrono::steady_clock`, apenas a compressão ou descompressão em memória, sem leitura e gravação em disco. **[Preencher: configuração da máquina dos experimentos finais — processador, RAM, sistema.]** As varreduras preliminares rodaram numa máquina virtual Linux com 2 núcleos e 7 GB de RAM.
+Todos os experimentos foram executados pelo script `scripts/rodar_tudo.sh`, num computador com processador de 16 núcleos lógicos **[preencher: modelo do processador]** e 40 GB de RAM, com Windows 11 e Ubuntu no WSL2 (34 GB visíveis). Rodaram 6 execuções do PPM-C em paralelo, com limite de memória de 4 GB cada. Os tempos medem apenas a compressão ou a descompressão em memória (`std::chrono::steady_clock`), sem leitura e gravação em disco. Os compressores comerciais rodaram sozinhos, sem outras execuções em paralelo, então seus tempos são um pouco favorecidos na comparação.
 
 ## 3. Resultados
 
-No dickens, o melhor resultado foi A8 com Kmax = 6: **1,90 bits/byte**. A4 e A1 chegam perto quando enxergam o mesmo passado, mas nunca o superam. No Silesia completo, A8 fez 2,061 bits/byte, empatado com o bzip2 e atrás de xz e 7-Zip. O reset melhorou todos os alfabetos na amostra de 24 MB. Com os mesmos parâmetros, porém, piorou A8 no Silesia completo, porque disparou dentro de arquivos internamente heterogêneos.
+No Silesia completo, o melhor PPM-C foi o **A8 com Kmax = 8: 2,060 bits/byte**, praticamente empatado com o bzip2 (2,061) e atrás de zstd, xz e 7-Zip. No texto de Dickens, o A8 com Kmax = 6 atinge **1,90 bits/byte** e só perde para o PPMd do 7-Zip. Com o critério proposto, o reset melhorou apenas o A4 (−1,9%); no A8 e no A1, nenhuma combinação de j e p superou o modelo sem reset.
 
 ### 3.1 Análise de ordem e desempenho
 
-A tabela traz os resultados sem reset. Para A1, mostra-se Kmax de 4 em 4 e os três maiores valores; a varredura completa (0 a 32) está em `resultados/ordem_dickens.csv`. A coluna "Contexto" converte Kmax em bytes de passado (Kmax × b / 8), para comparar os alfabetos na mesma base. Na amostra do Silesia, mediu-se só a compressão.
+A tabela traz os resultados sem reset. A coluna "Contexto" converte Kmax em bytes de passado (Kmax × b / 8), para comparar os alfabetos na mesma base. No dickens, o A1 aparece de 4 em 4 para coincidir com o Silesia; a varredura completa está em `resultados/ordem_dickens.csv`. Em negrito, o melhor Kmax de cada alfabeto em cada arquivo. Todas as 78 execuções foram descomprimidas idênticas ao original.
 
-| Alfabeto | Kmax | Contexto (bytes) | dickens bits/símb. | dickens bits/byte | t. comp. (s) | t. desc. (s) | amostra Silesia bits/byte |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| A8 | 0 | 0 | 4,5225 | 4,5225 | 2,0 | 2,0 | 5,3853 |
-| A8 | 1 | 1 | 3,4897 | 3,4897 | 1,6 | 1,5 | 4,9304 |
-| A8 | 2 | 2 | 2,8075 | 2,8075 | 1,5 | 1,4 | 3,6251 |
-| A8 | 3 | 3 | 2,2669 | 2,2669 | 1,5 | 1,5 | 3,0674 |
-| A8 | 4 | 4 | 1,9960 | 1,9960 | 2,3 | 2,1 | 2,8896 |
-| A8 | 5 | 5 | 1,9068 | 1,9068 | 3,7 | 4,1 | 2,8420 |
-| A8 | **6** | 6 | **1,9015** | **1,9015** | 6,2 | 6,8 | **2,8207** |
-| A8 | 7 | 7 | 1,9341 | 1,9341 | 9,9 | 10,6 | 2,8396 |
-| A8 | 8 | 8 | 1,9811 | 1,9811 | 13,8 | 15,0 | 2,8491 |
-| A4 | 0 | 0 | 3,3820 | 6,7640 | 2,1 | 2,0 | 6,6574 |
-| A4 | 1 | 0,5 | 2,4305 | 4,8610 | 2,0 | 2,0 | 5,9039 |
-| A4 | 2 | 1 | 1,8896 | 3,7793 | 1,9 | 2,0 | 5,6389 |
-| A4 | 3 | 1,5 | 1,6622 | 3,3244 | 2,1 | 2,0 | 5,1302 |
-| A4 | 4 | 2 | 1,4451 | 2,8902 | 2,2 | 2,2 | 4,0313 |
-| A4 | 5 | 2,5 | 1,3136 | 2,6271 | 2,2 | 2,2 | 3,5410 |
-| A4 | 6 | 3 | 1,1668 | 2,3336 | 2,4 | 2,6 | 3,2479 |
-| A4 | 7 | 3,5 | 1,0951 | 2,1901 | 3,2 | 3,9 | 3,1329 |
-| A4 | **8** | 4 | **1,0277** | **2,0554** | 4,3 | 5,0 | **3,0254** |
-| A1 | 0 | 0 | 0,9910 | 7,9284 | 4,0 | 4,0 | 7,4108 |
-| A1 | 4 | 0,5 | 0,9322 | 7,4577 | 4,8 | 4,6 | 7,1208 |
-| A1 | 8 | 1 | 0,6573 | 5,2583 | 4,6 | 4,7 | 6,4013 |
-| A1 | 12 | 1,5 | 0,4719 | 3,7755 | 4,7 | 5,6 | 6,1494 |
-| A1 | 16 | 2 | 0,3927 | 3,1419 | 5,9 | 6,8 | 4,9472 |
-| A1 | 20 | 2,5 | 0,3424 | 2,7389 | 7,8 | 10,7 | 3,9830 |
-| A1 | 24 | 3 | 0,3083 | 2,4662 | 10,3 | 16,5 | **3,2554** |
-| A1 | 28 | 3,5 | 0,2907 | 2,3255 | 15,1 | 25,3 | 3,3657 |
-| A1 | 30 | 3,75 | 0,2844 | 2,2753 | 19,1 | 32,4 | — |
-| A1 | 31 | 3,875 | 0,2815 | 2,2521 | 20,9 | 32,4 | — |
-| A1 | **32** | 4 | **0,2798** | **2,2386** | 22,5 | 35,8 | 3,5640 |
+| Alfabeto | Kmax | Contexto (bytes) | dickens bits/byte | dickens t. comp. (s) | dickens t. desc. (s) | Silesia bits/símb. | Silesia bits/byte | Silesia t. comp. (s) | Silesia t. desc. (s) | Resets por memória (Silesia) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A8 | 0 | 0 | 4,5225 | 1,4 | 1,1 | 4,9442 | 4,9442 | 53 | 47 | 0 |
+| A8 | 1 | 1 | 3,4897 | 1,1 | 1,1 | 4,0497 | 4,0497 | 57 | 50 | 0 |
+| A8 | 2 | 2 | 2,8075 | 1,0 | 1,0 | 3,1803 | 3,1803 | 70 | 63 | 0 |
+| A8 | 3 | 3 | 2,2669 | 1,2 | 1,2 | 2,5277 | 2,5277 | 116 | 110 | 0 |
+| A8 | 4 | 4 | 1,9960 | 2,3 | 2,4 | 2,2437 | 2,2437 | 189 | 192 | 0 |
+| A8 | 5 | 5 | 1,9068 | 4,6 | 4,7 | 2,1165 | 2,1165 | 270 | 259 | 1 |
+| A8 | 6 | 6 | **1,9015** | 6,6 | 7,0 | 2,0814 | 2,0814 | 361 | 388 | 2 |
+| A8 | 7 | 7 | 1,9341 | 9,6 | 9,3 | 2,0610 | 2,0610 | 471 | 491 | 4 |
+| A8 | 8 | 8 | 1,9811 | 13,5 | 12,2 | 2,0603 | **2,0603** | 603 | 619 | 6 |
+| A4 | 0 | 0 | 6,7640 | 1,4 | 1,1 | 3,1867 | 6,3734 | 29 | 22 | 0 |
+| A4 | 1 | 0,5 | 4,8610 | 1,4 | 1,2 | 2,6429 | 5,2857 | 31 | 26 | 0 |
+| A4 | 2 | 1 | 3,7793 | 1,3 | 1,1 | 2,3168 | 4,6335 | 30 | 26 | 0 |
+| A4 | 3 | 1,5 | 3,3244 | 1,4 | 1,2 | 2,1719 | 4,3437 | 33 | 30 | 0 |
+| A4 | 4 | 2 | 2,8902 | 1,6 | 1,4 | 1,7973 | 3,5946 | 65 | 52 | 0 |
+| A4 | 5 | 2,5 | 2,6271 | 2,0 | 1,8 | 1,5442 | 3,0884 | 117 | 107 | 0 |
+| A4 | 6 | 3 | 2,3336 | 2,4 | 2,4 | 1,3517 | 2,7033 | 218 | 210 | 0 |
+| A4 | 7 | 3,5 | 2,1901 | 4,3 | 3,8 | 1,2249 | 2,4498 | 291 | 291 | 1 |
+| A4 | 8 | 4 | **2,0554** | 4,6 | 6,5 | 1,1460 | **2,2920** | 414 | 411 | 2 |
+| A1 | 0 | 0 | 7,9284 | 2,8 | 2,4 | 0,9111 | 7,2888 | 54 | 49 | 0 |
+| A1 | 4 | 0,5 | 7,4577 | 3,3 | 2,9 | 0,8576 | 6,8609 | 62 | 56 | 0 |
+| A1 | 8 | 1 | 5,2583 | 3,4 | 3,2 | 0,6994 | 5,5954 | 67 | 63 | 0 |
+| A1 | 12 | 1,5 | 3,7755 | 3,6 | 3,5 | 0,6354 | 5,0834 | 82 | 80 | 0 |
+| A1 | 16 | 2 | 3,1419 | 5,4 | 6,2 | 0,5478 | 4,3820 | 197 | 203 | 0 |
+| A1 | 20 | 2,5 | 2,7389 | 12,8 | 12,9 | 0,4490 | 3,5919 | 382 | 457 | 0 |
+| A1 | 24 | 3 | 2,4662 | 24,0 | 27,5 | 0,3732 | 2,9853 | 916 | 1100 | 0 |
+| A1 | 28 | 3,5 | 2,3255 | 31,7 | 40,4 | 0,3309 | **2,6471** | 2251 | 2008 | 22 |
+| A1 | 32 | 4 | **2,2386** | 44,9 | 58,9 | 0,3399 | 2,7188 | 3915 | 3200 | 49 |
 
-Tempos medidos na máquina virtual de 2 núcleos, com duas execuções simultâneas. Em negrito, o melhor Kmax de cada alfabeto.
+Principais observações:
 
-Três observações:
+- **O Kmax ótimo depende da fonte.** No texto de Dickens, o A8 tem um ótimo claro em K = 6; acima disso, os contextos ficam raros demais e os escapes em cascata pioram a taxa. No Silesia, a taxa continua caindo até K = 8, mas com ganho cada vez menor: de K = 6 para K = 8, só 0,021 bits/byte (1%), enquanto o tempo de compressão sobe de 361 s para 603 s.
+- **Com o mesmo passado de 4 bytes**, o alfabeto maior sempre comprime melhor: no dickens, A8 (K = 4) faz 2,00 bits/byte, A4 (K = 8) faz 2,06 e A1 (K = 32) faz 2,24. No Silesia, 2,24, 2,29 e 2,72.
+- **No A1, o limite de memória define o ótimo.** No Silesia, K = 28 foi melhor que K = 32 (2,65 contra 2,72 bits/byte). Com K = 32, o modelo atingiu o limite de 4 GB 49 vezes e foi reiniciado; com K = 28, 22 vezes. No dickens, que é pequeno, o limite nunca foi atingido, e K = 32 foi o melhor.
+- **O custo cresce muito com a ordem, sobretudo no A1.** Comprimir o Silesia levou 54 s com A1 e K = 0, e 65 minutos com K = 32. O A8 com K = 8 levou 10 minutos, e o A4 com K = 8, 7 minutos. A descompressão leva aproximadamente o mesmo tempo que a compressão, porque o descompressor refaz todo o trabalho do modelo.
 
-- **Existe um Kmax ótimo em A8.** A taxa cai até Kmax = 6 e depois volta a subir. Contextos longos demais passam muito tempo com poucas ocorrências e pagam escapes em cascata. O tempo cresce sem parar: de 1,5 s (K = 2) para 13,8 s (K = 8).
-- **Com o mesmo passado de 4 bytes**, A8 (K = 4) faz 2,00 bits/byte, A4 (K = 8) faz 2,06 e A1 (K = 32) faz 2,24. Quebrar o byte em pedaços custa um pouco: o modelo precisa aprender várias decisões encadeadas para prever um único caractere.
-- **A1 em dados binários esbarra na memória.** Na amostra do Silesia, K = 24 fica melhor que K = 32 (3,26 contra 3,56 bits/byte). Com K = 32, o modelo atingiu o limite de 2 GB 23 vezes e foi reiniciado; com K = 24, só 3. O custo por símbolo também explode: comprimir a amostra levou 130 s com K = 24 e 610 s com K = 32.
+![Taxa e tempo em função do tamanho do contexto no Silesia completo](../resultados/grafico_ordem_silesia_concat.png)
 
-![Taxa e tempo em função do tamanho do contexto no dickens](../resultados/grafico_ordem_dickens.png)
-
-Figura 1 — Taxa (bits/byte) e tempo de compressão em função do contexto máximo em bytes (Kmax × b / 8), dickens.
-
-**[Acrescentar a varredura de Kmax no Silesia completo.]**
+Figura 1 — Taxa (bits/byte) e tempo de compressão em função do contexto máximo em bytes (Kmax × b / 8), Silesia completo. O gráfico equivalente para o dickens está em `resultados/grafico_ordem_dickens.png`.
 
 ### 3.2 Estratégia de reset
 
-Na amostra do Silesia (2 MB de cada um dos 12 arquivos), o reset melhorou a taxa em todos os alfabetos. O ganho foi de 1,4% em A8 a 3,5% em A4. Em todos, os melhores parâmetros ficaram no extremo da grade: janelas grandes (j de 50.000 a 100.000) e tolerância alta (p = 50%).
+Com o critério de reset por taxa local, a taxa melhora de forma monotônica à medida que j e p aumentam. Em todos os alfabetos, a melhor combinação foi a do canto da grade: **j = 100.000 e p = 50%**, a que reseta menos.
 
-| Alfabeto | Kmax | Sem reset (bits/byte) | Com reset (bits/byte) | Melhor j | Melhor p | Resets | Ganho |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| A8 | 6 | 2,8207 | 2,7818 | 50.000 | 50% | 9 | 1,4% |
-| A4 | 8 | 3,0254 | 2,9205 | 100.000 | 50% | 9 | 3,5% |
-| A1 | 24 | 3,2554 | 3,1876 | 100.000 | 50% | 20 | 2,1% |
+| Alfabeto | Kmax | Sem reset (bits/byte) | Melhor com reset (bits/byte) | Melhor j | Melhor p | Resets | Variação | Combinações melhores que sem reset |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A8 | 8 | **2,0603** | 2,0844 | 100.000 | 50% | 72 | +1,2% | 0 de 42 |
+| A4 | 8 | 2,2920 | **2,2495** | 100.000 | 50% | 96 | −1,9% | 9 de 42 |
+| A1 | 28 | **2,6471** | 2,8062 | 100.000 | 50% | 366 | +6,0% | 0 de 9 |
 
-Grade testada: j ∈ {1.000, 5.000, 10.000, 50.000, 100.000} e p ∈ {5, 10, 20, 30, 50}% para A8 e A4. Em A1, o alfabeto mais lento, testou-se j ∈ {10.000, 50.000, 100.000} e p ∈ {10, 30, 50}%. O CSV completo está em `resultados/reset_silesia_amostra.csv`.
+No A4, as 9 combinações que superaram o modelo sem reset são j = 100.000 com p ≥ 20%, j = 50.000 com p ≥ 30% e j = 20.000 com p ≥ 40%. No outro extremo, janelas pequenas transformam o critério em ruído. No A8, j = 1.000 com p = 5% disparou 43.523 resets e piorou a taxa para 3,00 bits/byte (+45%). No A4, a mesma configuração chegou a 92.357 resets. O CSV completo está em `resultados/reset_silesia_concat.csv`.
 
-O número de resets nas melhores configurações (9) é próximo do número de transições entre arquivos na amostra (11). Isso indica que o critério detecta as mudanças de fonte.
+![Mapa de calor da taxa em função de j e p no Silesia completo](../resultados/grafico_reset_silesia_concat.png)
 
-Com janelas pequenas, o critério vira ruído e o reset passa a atrapalhar. Em A8, j = 1.000 com p = 5% disparou 3.852 resets e piorou a taxa para 3,66 bits/byte, 30% acima do modelo sem reset. Em A4, a mesma configuração chegou a 9.819 resets. Uma janela de 1.000 símbolos corresponde a 1.000 bytes em A8, mas a só 125 bytes em A1, onde a flutuação natural da taxa já supera p.
+Figura 2 — Bits/símbolo em função de j e p no Silesia completo, um painel por alfabeto, com a taxa sem reset no título. Cores mais claras indicam taxas menores.
 
-![Mapa de calor da taxa em função de j e p na amostra do Silesia](../resultados/grafico_reset_silesia_amostra.png)
-
-Figura 2 — Bits/símbolo em função de j e p na amostra do Silesia, um painel por alfabeto, com a taxa sem reset no título.
-
-**[Acrescentar a grade de reset no Silesia completo.]**
+**[Preencher após a verificação: as três melhores configurações com reset foram descomprimidas e comparadas com `cmp`? Tempos de descompressão com reset: A8 ___ s, A4 ___ s, A1 ___ s.]**
 
 ### 3.3 Comparação com compressores comerciais
 
-No texto de Dickens, o PPM-C A8 supera todos os compressores de uso geral testados e só perde para o PPMd do 7-Zip. Na amostra do Silesia, com dados binários, perde para bzip2, xz e 7-Zip.
+| Compressor | dickens (bits/byte) | dickens t. comp. (s) | dickens t. desc. (s) | Silesia (bits/byte) | Silesia t. comp. (s) | Silesia t. desc. (s) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 7-Zip PPMd -mx9 | **1,790** | 3,5 | 2,9 | **1,814** | 31,8 | 34,6 |
+| 7-Zip LZMA2 -mx9 | 2,222 | 4,0 | 0,1 | 1,838 | 55,0 | 1,6 |
+| xz -9 (LZMA2) | 2,222 | 7,1 | 0,1 | 1,840 | 84,7 | 1,5 |
+| zstd -19 | 2,237 | 6,7 | 0,03 | 1,995 | 40,5 | 0,3 |
+| **PPM-C A8** (K = 6 no dickens, K = 8 no Silesia) | 1,902 | 6,6 | 7,0 | 2,060 | 603 | 619 |
+| bzip2 -9 | 2,197 | 0,6 | 0,3 | 2,061 | 11,9 | 5,1 |
+| PPM-C A4, K = 8 (no Silesia, com reset) | 2,055 | 4,6 | 6,5 | 2,250 | 360 | **[preencher]** |
+| gzip -9 | 3,023 | 0,7 | 0,04 | 2,554 | 14,0 | 0,6 |
+| PPM-C A1 (K = 32 no dickens, K = 28 no Silesia) | 2,239 | 44,9 | 58,9 | 2,647 | 2251 | 2008 |
 
-| Compressor | dickens (bits/byte) | dickens t. comp. (s) | amostra Silesia (bits/byte) | amostra t. comp. (s) |
-| --- | --- | --- | --- | --- |
-| 7-Zip PPMd -mx9 | 1,790 | 2,9 | 2,535 | 4,7 |
-| **PPM-C A8, Kmax = 6** | **1,902** | 6,2 | 2,821 (2,782 com reset) | 42,3 |
-| PPM-C A4, Kmax = 8 | 2,055 | 4,3 | 3,025 (2,921 com reset) | 49,9 |
-| bzip2 -9 | 2,197 | 0,9 | 2,669 | 2,1 |
-| xz -9 (LZMA2) | 2,222 | 8,6 | 2,663 | 9,5 |
-| 7-Zip LZMA2 -mx9 | 2,222 | 5,1 | 2,661 | 4,7 |
-| zstd -19 | 2,237 | 7,1 | 2,848 | 8,6 |
-| PPM-C A1, Kmax = 32 / 24 | 2,239 | 22,5 | 3,255 (3,188 com reset) | 130,2 |
-| gzip -9 | 3,023 | 1,1 | 3,268 | 2,5 |
+No texto de Dickens, o PPM-C A8 supera bzip2, xz, 7-Zip LZMA2 e zstd, e só perde para o PPMd. No Silesia, com muitos dados binários, o PPM-C A8 empata com o bzip2 e fica atrás dos compressores LZ modernos.
 
-No dickens, a linha de PPM-C A1 usa Kmax = 32; na amostra, Kmax = 24, o melhor de cada arquivo. Todos os compressores comerciais foram verificados com `cmp`. No Silesia completo, o PPM-C A8 empata com o bzip2 (2,061 bits/byte) e fica atrás de zstd, xz e 7-Zip.
-
-| Compressor (Silesia completo, 212 MB) | bits/byte | t. comp. (s) | t. desc. (s) |
-| --- | --- | --- | --- |
-| 7-Zip PPMd -mx9 | 1,814 | 38,6 | 41,1 |
-| 7-Zip LZMA2 -mx9 | 1,839 | 69,5 | 3,4 |
-| xz -9 (LZMA2) | 1,840 | 120,5 | 3,4 |
-| zstd -19 | 2,001 | 116,6 | 0,3 |
-| bzip2 -9 | 2,061 | 18,8 | 7,9 |
-| **PPM-C A8, Kmax = 6, sem reset** | **2,061** | **[preencher]** | **[preencher]** |
-| PPM-C A4, Kmax = 8, com reset | 2,249 | [preencher] | [preencher] |
-| gzip -9 | 2,554 | 22,9 | 1,6 |
-
-O PPMd é uma evolução do PPM com estimação adaptativa do escape (SEE) e herança de contagens entre ordens. A diferença de 0,11 bits/byte no dickens mostra o quanto o método C deixa na mesa. Nos dados binários, os compressores LZ e BWT exploram repetições longas e estruturas que um contexto fixo de 6 bytes não alcança. Em tempo, o PPM-C A8 é mais rápido que o xz no dickens (6,2 contra 8,6 s), mas na amostra binária é 4 vezes mais lento que o xz e 20 vezes mais lento que o bzip2.
+O PPMd é uma evolução do PPM com estimação adaptativa do escape (SEE) e herança de contagens entre ordens. A diferença de 0,11 bits/byte no dickens e de 0,25 no Silesia mostra o quanto o método C deixa na mesa. Nos dados binários, os compressores LZ exploram repetições longas, a distâncias de muitos megabytes, que um contexto fixo de até 8 bytes não alcança. Em velocidade, o PPM-C é de 7 a 50 vezes mais lento que os comerciais no Silesia. Isso se deve em parte à implementação didática, com tabelas hash genéricas da biblioteca padrão.
 
 ### 3.4 Aprendizado e estacionariedade no dickens
 
@@ -231,7 +208,7 @@ No texto de Dickens, A4 e A8 chegam a 10% do valor final em menos de 1 MB. A1 pr
 | 100 KB | 4,53 | 2,79 | 2,58 |
 | 500 KB | 3,11 | 2,29 | 2,16 |
 | 1 MB | 2,77 | 2,18 | 2,04 |
-| 2 MB | 2,64 | 2,19 | 2,05 |
+| 2 MB | 2,63 | 2,19 | 2,05 |
 | 5 MB | 2,37 | 2,10 | 1,96 |
 | 10 MB (final) | 2,24 | 2,06 | 1,90 |
 
@@ -253,57 +230,48 @@ Figura 3 — Comprimento médio progressivo no dickens, em bits/byte, para A1 (K
 
 ### 3.5 Aprendizado e estacionariedade no Silesia
 
-No Silesia completo (212 MB, 12 arquivos concatenados), a taxa local salta a cada troca de arquivo. A média progressiva nunca estabiliza: ela sobe nos arquivos difíceis e desce nos fáceis. Sem reset, A8 com Kmax = 6 fecha em **2,061 bits/byte** e A4 com Kmax = 8 em **2,259**.
+No Silesia completo, a taxa local salta a cada troca de arquivo, e a média progressiva nunca estabiliza: ela sobe nos arquivos difíceis e desce nos fáceis. A tabela decompõe a taxa por arquivo, calculada pela diferença de bits acumulados entre as fronteiras de cada arquivo na curva progressiva. As colunas "com reset" usam j = 100.000 e p = 50%.
 
-Os parâmetros de reset escolhidos na amostra **não se transferiram** para o Silesia completo:
+| Arquivo | Tipo | MB | A8 sem | A8 com | A4 sem | A4 com | A1 sem | A1 com | Resets (A8 / A4 / A1) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| dickens | texto em inglês | 10,2 | 1,974 | 1,974 | 2,048 | 2,048 | 2,308 | 2,308 | 0 / 0 / 0 |
+| mozilla | executáveis e bibliotecas (tar) | 51,2 | **2,792** | 2,868 | 3,101 | 3,095 | **3,702** | 4,145 | 37 / 63 / 247 |
+| mr | imagem de ressonância magnética | 10,0 | **2,135** | 2,270 | **1,983** | 2,122 | **2,379** | 2,914 | 10 / 8 / 21 |
+| nci | base de estruturas químicas | 33,6 | 0,566 | 0,570 | 0,742 | 0,740 | 0,982 | 0,978 | 1 / 1 / 0 |
+| ooffice | DLL do OpenOffice | 6,2 | 3,726 | **3,623** | 4,103 | **3,900** | 4,938 | **4,869** | 3 / 2 / 8 |
+| osdb | banco de dados de teste | 10,1 | 2,208 | **2,128** | 2,345 | **2,157** | 2,630 | 2,620 | 1 / 1 / 1 |
+| reymont | texto em polonês (PDF) | 6,6 | 1,453 | 1,447 | 1,641 | **1,602** | 1,771 | **1,742** | 1 / 1 / 2 |
+| samba | código-fonte (tar) | 21,6 | 1,749 | 1,748 | 2,165 | **2,009** | **2,395** | 2,741 | 13 / 14 / 78 |
+| sao | catálogo de estrelas | 7,3 | 5,768 | **5,727** | 6,001 | **5,924** | 5,963 | 5,960 | 1 / 1 / 1 |
+| webster | dicionário | 41,5 | **1,400** | 1,448 | 1,637 | 1,637 | 1,870 | 1,870 | 0 / 0 / 0 |
+| x-ray | radiografia | 8,5 | 4,320 | **4,268** | 4,296 | **4,168** | 4,946 | **4,917** | 1 / 1 / 1 |
+| xml | arquivos XML | 5,3 | 0,767 | 0,766 | 1,314 | **1,017** | 1,487 | **1,363** | 4 / 4 / 7 |
 
-| Alfabeto | Kmax | j | p | Sem reset (bits/byte) | Com reset (bits/byte) | Resets por taxa | Resets por memória (sem / com reset) |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| A8 | 6 | 50.000 | 50% | 2,0609 | 2,0749 (+0,7%) | 109 | 6 / 1 |
-| A4 | 8 | 100.000 | 50% | 2,2590 | 2,2489 (−0,4%) | 96 | 5 / 1 |
+Valores em bits/byte. Em negrito, a melhor versão de cada alfabeto quando a diferença passa de 0,02 bits/byte.
 
-**[Atualizar com a melhor configuração da grade de reset no Silesia completo, e acrescentar A1.]**
+**Onde a compressão sofre.** As maiores perdas ocorrem na entrada do `mozilla`, onde a taxa local salta de ~2 para ~8 bits/símbolo, e nas entradas de `ooffice`, `sao` e `x-ray`. Nesses pontos, o modelo traz contextos e contagens de um arquivo de natureza muito diferente. Os símbolos novos custam escapes em todas as ordens, e os antigos carregam probabilidades erradas.
 
-A tabela abaixo decompõe a taxa por arquivo. Ela foi calculada pela diferença de bits acumulados entre as fronteiras de cada arquivo na curva progressiva.
+**Onde o reset ajuda.** Nas entradas de ooffice, osdb, sao, x-ray e xml, o reset disparou no primeiro MB do novo arquivo. No A4, isso recuperou de 0,08 a 0,30 bits/byte nesses arquivos; no A8, de 0,04 a 0,10 (o xml quase não mudou). O maior ganho foi no xml em A4, de 1,31 para 1,02 bits/byte: o modelo herdado do x-ray era especialmente ruim para texto estruturado.
 
-| Arquivo | Tipo | Tamanho (MB) | A8 sem reset | A8 com reset | A4 sem reset | A4 com reset | Resets A8 |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| dickens | texto em inglês | 10,2 | 1,895 | 1,895 | 2,048 | 2,048 | 0 |
-| mozilla | executáveis e bibliotecas (tar) | 51,2 | 2,822 | 2,884 | 3,045 | 3,095 | 70 |
-| mr | imagem de ressonância magnética | 10,0 | 2,047 | 2,199 | 2,005 | 2,122 | 9 |
-| nci | base de estruturas químicas | 33,6 | 0,578 | 0,580 | 0,744 | 0,740 | 1 |
-| ooffice | DLL do OpenOffice | 6,2 | 3,774 | **3,590** | 4,173 | **3,900** | 3 |
-| osdb | banco de dados de teste | 10,1 | 2,151 | **2,074** | 2,188 | **2,157** | 1 |
-| reymont | texto em polonês (PDF) | 6,6 | 1,465 | 1,459 | 1,604 | 1,602 | 1 |
-| samba | código-fonte (tar) | 21,6 | 1,781 | **1,763** | 2,076 | **2,009** | 17 |
-| sao | catálogo de estrelas | 7,3 | 5,722 | **5,670** | 5,939 | 5,929 | 1 |
-| webster | dicionário | 41,5 | 1,386 | 1,421 | 1,634 | 1,633 | 1 |
-| x-ray | radiografia | 8,5 | 4,319 | **4,254** | 4,240 | **4,168** | 1 |
-| xml | arquivos XML | 5,3 | 0,830 | 0,834 | 1,308 | **1,016** | 5 |
+**Onde o reset atrapalha.** Os arquivos `mozilla`, `mr` e `samba` são internamente heterogêneos: um tar de binários variados, uma imagem com fatias de estatística diferente e um tar de código-fonte. Neles, a taxa local oscila mais de 50% entre janelas vizinhas, e o critério dispara resets que descartam modelos ainda úteis. No A8, foram 37 resets só no mozilla, que piorou 0,08 bits/byte; no A1, 247 resets no mozilla e 78 no samba, que pioraram 0,44 e 0,35 bits/byte. Como esses três arquivos somam 83 MB, 39% do corpus, as perdas neles superaram os ganhos nas transições no A8 e no A1. No A4, os ganhos foram maiores que as perdas.
 
-Valores em bits/byte. Em negrito, as melhoras de pelo menos 0,015 bits/byte.
-
-**Onde a compressão sofre.** As maiores perdas ocorrem nas entradas em `mozilla` (de ~1,9 para ~8 bits/símbolo local), `ooffice`, `sao` e `x-ray`. Nesses pontos, o modelo traz contextos e contagens de um arquivo de natureza muito diferente. Os símbolos novos custam escapes em todas as ordens, e os antigos carregam probabilidades erradas.
-
-**Onde o reset ajuda.** Cada troca de arquivo real (ooffice, osdb, samba, sao, x-ray, xml) disparou um reset no primeiro MB do novo arquivo. Esses resets recuperaram de 0,02 a 0,18 bits/byte. O maior ganho foi no xml em A4, de 1,31 para 1,02 bits/byte: o modelo herdado do x-ray era especialmente ruim para texto estruturado.
-
-**Onde o reset atrapalha.** Dos 109 resets em A8, 70 ocorreram dentro do `mozilla` e 9 dentro do `mr`. Esses arquivos são internamente heterogêneos (um tar de binários variados e uma imagem com fatias de estatística diferente), e a taxa local oscila mais de 50% entre janelas de 50.000 bytes. Cada falso positivo descarta um modelo que ainda era útil, e o custo de reaprender superou o ganho nos outros arquivos.
-
-**O limite de memória age como reset.** Sem reset por taxa, A8 com Kmax = 6 atingiu o limite de 2 GB seis vezes, em mozilla, ooffice, samba, sao e x-ray. Ou seja, o modelo "sem reset" também foi reiniciado de tempos em tempos, o que reduz a vantagem relativa da estratégia por taxa.
+**O limite de memória também age como reset.** Sem reset por taxa, o modelo foi reiniciado por memória 6 vezes no A8 (mozilla, ooffice, samba, sao e x-ray), 2 no A4 e 22 no A1. Ou seja, o modelo "sem reset" também esquece de tempos em tempos, justamente nos arquivos grandes e heterogêneos. Isso reduz a vantagem que o reset por taxa poderia ter. A piora do webster no A8 com reset (1,400 → 1,448) vem do único reset por memória dessa execução, que caiu no webster.
 
 ![Comprimento médio progressivo e taxa local no Silesia completo, A8](../resultados/grafico_curva_silesia_concat_a8.png)
 
-Figura 4 — Silesia completo, A8 com Kmax = 6. Em cima, comprimento médio progressivo com e sem reset (j = 50.000, p = 50%). Embaixo, taxa local entre pontos consecutivos da curva. Linhas tracejadas cinza marcam as fronteiras entre arquivos; linhas vermelhas, os resets.
+Figura 4 — Silesia completo, A8 com Kmax = 8. Em cima, comprimento médio progressivo com e sem reset (j = 100.000, p = 50%). Embaixo, taxa local entre pontos consecutivos da curva. Linhas tracejadas cinza marcam as fronteiras entre arquivos; linhas vermelhas, os resets.
 
 ![Comprimento médio progressivo e taxa local no Silesia completo, A4](../resultados/grafico_curva_silesia_concat_a4.png)
 
-Figura 5 — Silesia completo, A4 com Kmax = 8, com e sem reset (j = 100.000, p = 50%).
+Figura 5 — Silesia completo, A4 com Kmax = 8, com e sem reset.
 
-**[Acrescentar a curva de A1 no Silesia completo.]**
+![Comprimento médio progressivo e taxa local no Silesia completo, A1](../resultados/grafico_curva_silesia_concat_a1.png)
+
+Figura 6 — Silesia completo, A1 com Kmax = 28, com e sem reset.
 
 ### 3.6 Integridade
 
-Todas as execuções com descompressão foram verificadas byte a byte e reproduziram o original. Isso inclui as 51 do dickens e os 112 testes do `scripts/verificar.sh`: arquivos vazio, de 1 byte, só zeros, aleatório, repetitivo, misto e código-fonte, em 16 configurações de alfabeto, Kmax, reset e limite de memória. Os resets também ficaram sincronizados: num caso extremo (A1, j = 1.000, p = 5%), compressor e descompressor registraram os mesmos 22.722 resets e o arquivo foi recuperado intacto.
+Todas as execuções com descompressão foram verificadas byte a byte e reproduziram o original: as 51 do dickens, as 27 do Silesia completo e os 112 testes do `scripts/verificar.sh`. Esses testes cobrem arquivos vazio, de 1 byte, só zeros, aleatório, repetitivo, misto e código-fonte, em 16 configurações de alfabeto, Kmax, reset e limite de memória. Os resets também ficaram sincronizados: num caso extremo (A1, j = 1.000, p = 5%), compressor e descompressor registraram os mesmos 22.722 resets e o arquivo foi recuperado intacto.
 
 ```
 $ ./ppmc c -a 8 -k 6 dados/dickens dickens.ppmc
@@ -312,7 +280,6 @@ bytes_saida: 2422615
 bits_por_byte: 1.901498
 $ ./ppmc d dickens.ppmc dickens.out
 bytes_saida: 10192446
-tempo_s: 6.455
 $ cmp dados/dickens dickens.out && echo IDENTICOS
 IDENTICOS
 $ sha256sum dados/dickens dickens.out
@@ -328,17 +295,17 @@ O alfabeto maior aprende mais rápido por byte lido. No dickens, A8 chega a 2,58
 
 A explicação está em quantas decisões o modelo precisa aprender para prever um caractere. Em A8 é uma decisão, num contexto que já inclui os bytes anteriores inteiros. Em A1 são oito decisões binárias em sequência, e as primeiras ainda não sabem nada sobre o byte atual. Cada uma dessas oito "posições de bit" tem seus próprios contextos, que precisam ser vistos várias vezes antes de darem boas previsões.
 
-No fim, com o mesmo passado (4 bytes), os três alfabetos ficam próximos no texto: 2,00 (A8), 2,06 (A4) e 2,24 (A1) bits/byte. A diferença restante vem do aprendizado mais lento e do custo dos escapes encadeados em A1.
+No fim, com o mesmo passado (4 bytes), os três alfabetos ficam próximos no texto: 2,00 (A8), 2,06 (A4) e 2,24 (A1) bits/byte. No Silesia, a distância é maior (2,24, 2,29 e 2,72), porque o A1 também esbarra no limite de memória.
 
 ### 4.2 Impacto dos parâmetros
 
-**Kmax.** Em A8 existe um ótimo claro (K = 6 no texto e na amostra). Abaixo dele, o modelo não enxerga dependências suficientes. Acima, os contextos ficam raros demais e a maioria dos símbolos paga escapes em cascata até uma ordem com estatística. Em A4 e A1, a taxa ainda caía no maior Kmax permitido no texto. Em dados binários, A1 piorou acima de K = 24 por causa do limite de memória. O tempo e a memória crescem com Kmax em todos os casos, e muito mais rápido em dados binários.
+**Kmax.** Aumentar Kmax ajuda até o ponto em que os contextos ficam raros demais para ter estatística. No texto, esse ponto é K = 6 no A8. Nos dados mistos do Silesia, o ganho continua até K = 8, mas é pequeno a partir de K = 6. O tempo e a memória crescem com Kmax em todos os casos, e muito mais rápido no A1: de K = 24 para K = 32, o tempo de compressão no Silesia passou de 15 para 65 minutos.
 
-**j e p.** A janela pequena torna o critério ruidoso. Com j = 1.000 e p = 5%, A8 fez milhares de resets e piorou 30%. Janelas grandes e tolerância alta funcionaram melhor em todos os testes. Os melhores valores ficaram no extremo da faixa pedida (j = 100.000, p = 50%), o que sugere que o ótimo pode estar fora dela. O valor de j precisa ser pensado na unidade do alfabeto: 100.000 símbolos são 100 KB em A8, mas só 12,5 KB em A1.
+**j e p.** Janelas pequenas tornam o critério ruidoso. Com j = 1.000 e p = 5%, o A8 fez 43 mil resets e piorou 45%. A taxa melhora sempre que j ou p aumentam, e o melhor ficou no canto da faixa pedida (j = 100.000, p = 50%). Isso indica que, com esse critério, o melhor é resetar o mínimo possível. No A8 e no A1, o melhor de fato é não resetar. O valor de j também precisa ser pensado na unidade do alfabeto: 100.000 símbolos são 100 KB em A8, mas só 12,5 KB em A1. Por isso o A1 reseta mais, 366 vezes contra 72 no A8, e é o mais prejudicado.
 
 ### 4.3 Estratégias de tratamento de mudanças na distribuição
 
-O reset por taxa local acerta as transições reais entre arquivos: em A8, as entradas em mozilla, ooffice, osdb, samba, sao, x-ray e xml geraram um reset no primeiro MB do novo arquivo, com ganhos de até 0,29 bits/byte no arquivo seguinte. O problema são os falsos positivos em arquivos internamente heterogêneos, como `mozilla` e `mr`. Neles, a taxa local oscila naturalmente mais que p entre duas janelas, e o critério não distingue essa oscilação de uma mudança de fonte.
+O reset por taxa local acerta as transições reais entre arquivos muito diferentes, como as entradas de ooffice, osdb, x-ray e xml, e recupera a taxa logo depois delas. O problema são os falsos positivos em arquivos internamente heterogêneos (`mozilla`, `mr`, `samba`), onde a taxa local oscila naturalmente mais que p entre duas janelas. O critério compara só duas janelas vizinhas e não distingue essa oscilação de uma mudança de fonte.
 
 O reset total também é uma resposta drástica: joga fora até as estatísticas de ordem baixa, que costumam continuar úteis. O rescale de contagens (divisão por 2) e o limite de memória já dão ao modelo alguma capacidade de esquecer. Melhorias possíveis, não implementadas:
 
@@ -350,17 +317,17 @@ O reset total também é uma resposta drástica: joga fora até as estatísticas
 ### 4.4 Problemas e dificuldades
 
 - **Sincronia do reset.** Medir o custo em ponto flutuante (−log2 p) no compressor e no descompressor poderia gerar decisões diferentes em máquinas distintas. A solução foi contar as renormalizações do codificador aritmético, um valor inteiro e idêntico nos dois lados.
-- **Memória.** A8 com Kmax = 8 usou 557 MB no dickens. No Silesia completo, sem limite, seriam dezenas de GB. O limite determinístico resolveu, mas interfere nos resultados: o modelo "sem reset" também foi reiniciado algumas vezes.
-- **Tempo.** A1 com Kmax alto em dados binários custou cerca de 2,5 µs por símbolo, quase sempre em inserções de contextos novos na tabela hash. Comprimir a amostra de 24 MB com K = 32 levou 10 minutos. Por isso, a grade de A1 foi reduzida.
+- **Memória.** A8 com Kmax = 8 usou 557 MB só no dickens. No Silesia completo, sem limite, os modelos de ordem alta precisariam de dezenas de GB. O limite determinístico resolveu, mas interfere nos resultados: no A1 com K = 32, o modelo foi reiniciado 49 vezes, e o "sem reset" também esquece de tempos em tempos.
+- **Tempo.** A varredura completa levou cerca de 6 horas em 16 núcleos, com 6 execuções em paralelo. O A1 com Kmax alto custou até 65 minutos por compressão, quase sempre em inserções de contextos novos na tabela hash. Por isso, no Silesia, o A1 foi testado de 4 em 4 ordens e com uma grade de reset menor.
 - **Escape em A1.** No PPM-C clássico, um contexto binário que já viu os dois símbolos continua reservando probabilidade para o escape, que nunca pode ocorrer. Detectar esse caso e não reservar a probabilidade foi importante para A1.
 
 ## 5. Conclusão
 
-O compressor PPM-C com exclusão foi implementado para os três alfabetos e recupera os arquivos byte a byte em todos os testes. No texto, A8 com Kmax = 6 atinge 1,90 bits/byte, melhor que bzip2, xz e zstd. No Silesia completo, empata com o bzip2 em 2,06 bits/byte.
+O compressor PPM-C com exclusão foi implementado para os três alfabetos e recupera os arquivos byte a byte em todos os testes. No texto, A8 com Kmax = 6 atinge 1,90 bits/byte, melhor que bzip2, xz e zstd. No Silesia completo, A8 com Kmax = 8 atinge 2,060 bits/byte, empatado com o bzip2.
 
-A cardinalidade do alfabeto determina a velocidade de aprendizado. A8 e A4 ficam a 10% do valor final em menos de 1 MB de texto; A1 precisa de mais de três vezes isso e termina 12% pior com o mesmo passado de 4 bytes.
+A cardinalidade do alfabeto determina a velocidade de aprendizado. A8 e A4 ficam a 10% do valor final em menos de 1 MB de texto; A1 precisa de mais de três vezes isso e termina 12% pior no texto e 21% pior no Silesia, com o mesmo passado de 4 bytes. O A1 é também de 4 a 7 vezes mais lento que o A8.
 
-O reset por taxa local, sincronizado sem nenhum bit extra pela contagem de renormalizações, detecta as trocas de arquivo e recupera a taxa logo depois delas. O desempenho final, porém, depende muito de j e p. Parâmetros bons numa amostra disparam falsos positivos dentro de arquivos heterogêneos no corpus completo. Os melhores resultados vieram de janelas grandes e tolerância alta. Um critério mais robusto (piora persistente, ou reset parcial) é o próximo passo natural.
+O reset por taxa local, sincronizado sem nenhum bit extra pela contagem de renormalizações, detecta as trocas de arquivo e recupera a taxa logo depois delas. No corpus completo, porém, os falsos positivos dentro de arquivos heterogêneos custaram mais do que os acertos: o reset ajudou só o A4 (−1,9%) e, mesmo assim, com a configuração mais conservadora testada. Um critério mais robusto (piora persistente ou reset parcial) é o próximo passo natural.
 
 ## Referências
 
