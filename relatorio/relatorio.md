@@ -1,8 +1,6 @@
 # Relatório — Compressor PPM-C com exclusão e reset (ITI 2026.2)
 
-> **Rascunho.** Atualizado em 26/11/2026 com os resultados finais. Trechos entre **[colchetes]** ainda precisam ser preenchidos.
-
-**[Nomes dos integrantes da equipe]** · Introdução à Teoria da Informação — 2026.2 · Prof. Leonardo
+**Emmanuel Aprígio Cavalcanti dos Santos** e **Kaio César de Oliveira Barreto** · Introdução à Teoria da Informação — 2026.2
 
 ## 1. Introdução
 
@@ -112,7 +110,7 @@ O Corpus Silesia (211.938.580 bytes, 12 arquivos) foi concatenado em ordem alfab
 3. **Comerciais.** gzip -9, bzip2 -9, xz -9, zstd -19, 7-Zip LZMA2 -mx9 e 7-Zip PPMd -mx9, nos mesmos arquivos, verificados com `cmp`.
 4. **Curvas.** Comprimento médio progressivo, isto é, bits acumulados até a posição n divididos por n, amostrado em cerca de 2.000 pontos. Para cada alfabeto, com o melhor Kmax, sem reset e com o melhor j e p.
 
-Todos os experimentos foram executados pelo script `scripts/rodar_tudo.sh`, num computador com processador de 16 núcleos lógicos **[preencher: modelo do processador]** e 40 GB de RAM, com Windows 11 e Ubuntu no WSL2 (34 GB visíveis). Rodaram 6 execuções do PPM-C em paralelo, com limite de memória de 4 GB cada. Os tempos medem apenas a compressão ou a descompressão em memória (`std::chrono::steady_clock`), sem leitura e gravação em disco. Os compressores comerciais rodaram sozinhos, sem outras execuções em paralelo, então seus tempos são um pouco favorecidos na comparação.
+Todos os experimentos foram executados pelo script `scripts/rodar_tudo.sh`, num computador com processador AMD Ryzen 7 5700G (8 núcleos físicos, 16 lógicos, 3,8 GHz) e 40 GB de RAM, com Windows 11 e Ubuntu no WSL2 (34 GB visíveis). Rodaram 6 execuções do PPM-C em paralelo, com limite de memória de 4 GB cada. Os tempos medem apenas a compressão ou a descompressão em memória (`std::chrono::steady_clock`), sem leitura e gravação em disco. Os compressores comerciais rodaram sozinhos, sem outras execuções em paralelo, então seus tempos são um pouco favorecidos na comparação.
 
 ## 3. Resultados
 
@@ -179,7 +177,13 @@ No A4, as 9 combinações que superaram o modelo sem reset são j = 100.000 com 
 
 Figura 2 — Bits/símbolo em função de j e p no Silesia completo, um painel por alfabeto, com a taxa sem reset no título. Cores mais claras indicam taxas menores.
 
-**[Preencher após a verificação: as três melhores configurações com reset foram descomprimidas e comparadas com `cmp`? Tempos de descompressão com reset: A8 ___ s, A4 ___ s, A1 ___ s.]**
+As três melhores configurações com reset foram depois comprimidas e descomprimidas no Silesia completo e comparadas com `cmp`. As três resultaram em arquivos idênticos ao original, com exatamente as mesmas taxas da grade. Nessa verificação rodaram só 3 execuções em paralelo, por isso os tempos são um pouco menores que os da grade. A saída completa está em `resultados/verificacao_reset.txt`.
+
+| Alfabeto | Kmax | j | p | bits/byte | t. comp. (s) | t. desc. (s) | `cmp` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| A8 | 8 | 100.000 | 50% | 2,0844 | 414 | 401 | idêntico |
+| A4 | 8 | 100.000 | 50% | 2,2495 | 275 | 283 | idêntico |
+| A1 | 28 | 100.000 | 50% | 2,8062 | 1931 | 1893 | idêntico |
 
 ### 3.3 Comparação com compressores comerciais
 
@@ -191,7 +195,7 @@ Figura 2 — Bits/símbolo em função de j e p no Silesia completo, um painel p
 | zstd -19 | 2,237 | 6,7 | 0,03 | 1,995 | 40,5 | 0,3 |
 | **PPM-C A8** (K = 6 no dickens, K = 8 no Silesia) | 1,902 | 6,6 | 7,0 | 2,060 | 603 | 619 |
 | bzip2 -9 | 2,197 | 0,6 | 0,3 | 2,061 | 11,9 | 5,1 |
-| PPM-C A4, K = 8 (no Silesia, com reset) | 2,055 | 4,6 | 6,5 | 2,250 | 360 | **[preencher]** |
+| PPM-C A4, K = 8 (no Silesia, com reset) | 2,055 | 4,6 | 6,5 | 2,250 | 275 | 283 |
 | gzip -9 | 3,023 | 0,7 | 0,04 | 2,554 | 14,0 | 0,6 |
 | PPM-C A1 (K = 32 no dickens, K = 28 no Silesia) | 2,239 | 44,9 | 58,9 | 2,647 | 2251 | 2008 |
 
@@ -271,7 +275,7 @@ Figura 6 — Silesia completo, A1 com Kmax = 28, com e sem reset.
 
 ### 3.6 Integridade
 
-Todas as execuções com descompressão foram verificadas byte a byte e reproduziram o original: as 51 do dickens, as 27 do Silesia completo e os 112 testes do `scripts/verificar.sh`. Esses testes cobrem arquivos vazio, de 1 byte, só zeros, aleatório, repetitivo, misto e código-fonte, em 16 configurações de alfabeto, Kmax, reset e limite de memória. Os resets também ficaram sincronizados: num caso extremo (A1, j = 1.000, p = 5%), compressor e descompressor registraram os mesmos 22.722 resets e o arquivo foi recuperado intacto.
+Todas as execuções com descompressão foram verificadas byte a byte e reproduziram o original: as 51 do dickens, as 27 do Silesia completo, as 3 melhores configurações com reset no Silesia completo (seção 3.2) e os 112 testes do `scripts/verificar.sh`. Esses testes cobrem arquivos vazio, de 1 byte, só zeros, aleatório, repetitivo, misto e código-fonte, em 16 configurações de alfabeto, Kmax, reset e limite de memória. Os resets também ficaram sincronizados: num caso extremo (A1, j = 1.000, p = 5%), compressor e descompressor registraram os mesmos 22.722 resets e o arquivo foi recuperado intacto.
 
 ```
 $ ./ppmc c -a 8 -k 6 dados/dickens dickens.ppmc

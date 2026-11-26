@@ -1,0 +1,25 @@
+Verificação de integridade das melhores configurações com reset (Silesia completo)
+Executado em 26/11/2026 no computador dos experimentos (AMD Ryzen 7 5700G, 40 GB, WSL2),
+com as 3 execuções em paralelo. Saída do terminal:
+
+$ S=dados/silesia_concat.bin
+$ for cfg in "8 8" "4 8" "1 28"; do set -- $cfg
+    ( ./ppmc c -a $1 -k $2 -r -j 100000 -p 50 -m 4096 $S /tmp/a$1.ppmc > resultados/verif_reset_a$1.txt &&
+      ./ppmc d /tmp/a$1.ppmc /tmp/a$1.out >> resultados/verif_reset_a$1.txt &&
+      cmp $S /tmp/a$1.out && echo IDENTICOS >> resultados/verif_reset_a$1.txt ) &
+  done; wait
+$ grep -H -E "bits_por_byte|tempo_s|IDENTICOS" resultados/verif_reset_a*.txt
+resultados/verif_reset_a1.txt:bits_por_byte: 2.806165
+resultados/verif_reset_a1.txt:tempo_s: 1930.514
+resultados/verif_reset_a1.txt:tempo_s: 1893.446
+resultados/verif_reset_a1.txt:IDENTICOS
+resultados/verif_reset_a4.txt:bits_por_byte: 2.249514
+resultados/verif_reset_a4.txt:tempo_s: 275.380
+resultados/verif_reset_a4.txt:tempo_s: 283.154
+resultados/verif_reset_a4.txt:IDENTICOS
+resultados/verif_reset_a8.txt:bits_por_byte: 2.084407
+resultados/verif_reset_a8.txt:tempo_s: 413.655
+resultados/verif_reset_a8.txt:tempo_s: 400.973
+resultados/verif_reset_a8.txt:IDENTICOS
+
+(Em cada arquivo, o primeiro tempo_s é o da compressão e o segundo, o da descompressão.)
