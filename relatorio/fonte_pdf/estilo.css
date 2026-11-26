@@ -1,0 +1,30 @@
+@page { size: A4; margin: 2.2cm 2cm 2.2cm 2cm;
+  @bottom-center { content: counter(page); font-size: 9pt; color: #666; } }
+html { font-family: "DejaVu Serif", Georgia, serif; font-size: 11pt; line-height: 1.45; color: #111; }
+body { max-width: none; margin: 0; }
+h1 { font-family: "DejaVu Sans", sans-serif; font-size: 18pt; margin: 0 0 .3em; }
+h2 { font-family: "DejaVu Sans", sans-serif; font-size: 14pt; margin: 1.4em 0 .5em; border-bottom: 1px solid #bbb; padding-bottom: 2px; page-break-after: avoid; }
+h3 { font-family: "DejaVu Sans", sans-serif; font-size: 12pt; margin: 1.1em 0 .4em; page-break-after: avoid; }
+p { margin: .45em 0; text-align: justify; hyphens: auto; }
+table { border-collapse: collapse; margin: .8em auto; font-family: "DejaVu Sans", sans-serif; font-size: 8pt; page-break-inside: auto; }
+tr { page-break-inside: avoid; }
+th, td { border: 1px solid #c8c8c8; padding: 2px 5px; text-align: center; }
+th { background: #eef1f5; }
+td:first-child, th:first-child { text-align: left; }
+img { max-width: 100%; display: block; margin: .6em auto .2em; page-break-inside: avoid; }
+figure { margin: .6em 0; page-break-inside: avoid; }
+pre { font-size: 8.5pt; background: #f6f6f6; border: 1px solid #ddd; padding: 6px 8px; white-space: pre-wrap; page-break-inside: avoid; }
+code { font-family: "DejaVu Sans Mono", monospace; font-size: .88em; }
+ul, ol { margin: .4em 0 .4em 1.4em; padding: 0; }
+li { margin: .15em 0; text-align: justify; }
+math[display="block"] { margin: .6em auto; font-size: 1.1em; }
+.capa { height: 24cm; display: flex; flex-direction: column; justify-content: space-between; text-align: center; page-break-after: always; font-family: "DejaVu Sans", sans-serif; }
+.capa .inst { font-size: 12pt; line-height: 1.6; }
+.capa .titulo { font-size: 20pt; font-weight: bold; line-height: 1.35; }
+.capa .sub { font-size: 12pt; color: #333; margin-top: .6em; }
+.capa .autores { font-size: 12pt; line-height: 1.7; }
+.capa .data { font-size: 11pt; }
+nav#TOC { page-break-after: always; font-family: "DejaVu Sans", sans-serif; font-size: 10.5pt; }
+nav#TOC ul { list-style: none; margin-left: 1.1em; }
+nav#TOC > ul { margin-left: 0; }
+nav#TOC a { color: #111; text-decoration: none; }
